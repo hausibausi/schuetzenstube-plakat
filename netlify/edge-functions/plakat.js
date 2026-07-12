@@ -64,7 +64,7 @@ export default async (request) => {
   form.append("model", MODELL);
   form.append("prompt", bauePrompt(untertitel, gerichte, gruss));
   form.append("size", "1024x1536");
-  form.append("quality", "medium");
+  form.append("quality", "high");
   form.append("n", "1");
   form.append("image[]", refBlob, "vorlage.jpg");
 
