@@ -7,7 +7,7 @@
 <title>Schützenstube Bottighofen · Plakatgenerator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Nunito+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Nunito+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
   :root{
     --gruen:#2f5d34; --gruen-tief:#264a2a; --gruen-hell:#e8f0e6; --gruen-linie:#3c7042;
@@ -31,8 +31,7 @@
       radial-gradient(600px 300px at 80% -60px, rgba(255,255,255,.08), transparent 70%),
       linear-gradient(160deg, var(--gruen) 0%, var(--gruen-tief) 100%);
     padding:calc(26px + env(safe-area-inset-top)) 20px 30px;
-    border-bottom:4px solid #d8c98a;
-    box-shadow:0 4px 18px rgba(38,74,42,.28);
+    border-bottom:4px solid #d8c98a; box-shadow:0 4px 18px rgba(38,74,42,.28);
   }
   .brand{font-size:13px; letter-spacing:3px; text-transform:uppercase; font-weight:700; opacity:.9; margin-bottom:2px;}
   .titel{font-family:"Dancing Script",cursive; font-weight:700; font-size:44px; line-height:1; margin:2px 0 4px; color:#fdfaf0; text-shadow:0 2px 6px rgba(0,0,0,.25);}
@@ -106,11 +105,12 @@ Grüässli Brigitte</textarea>
     </div>
   </div>
 
-  <p class="fuss">Läuft über OpenAI · Bilder werden sicher serverseitig erzeugt <span class="herz">&#9829;</span></p>
+  <p class="fuss">Text wird scharf eingesetzt · Bild-Hintergrund von OpenAI <span class="herz">&#9829;</span></p>
 </div>
 
 <script>
 const $ = s => document.querySelector(s);
+const GRUEN = '#2f5d34';
 function autoGrow(el){ el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px'; }
 document.addEventListener('input', e => { if (e.target.tagName === 'TEXTAREA') autoGrow(e.target); });
 
@@ -130,11 +130,99 @@ function neueZeile(wert=''){
 ['Suppe','Salat','Roastbeef','Sauce tartare & Sauce Hollandaise'].forEach(neueZeile);
 $('#add-gericht').addEventListener('click', () => neueZeile());
 
-let letztesBild = null;
+let letzterCanvas = null;
 function dateiName(){
   const d = new Date();
   const datum = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   return `Wuchaeend-Menue_${datum}.png`;
+}
+
+// ---------- Canvas-Textlayout ----------
+function wrap(ctx, text, maxW){
+  const words = text.split(/\s+/); const lines=[]; let cur='';
+  for (const w of words){
+    const test = cur ? cur+' '+w : w;
+    if (ctx.measureText(test).width > maxW && cur){ lines.push(cur); cur=w; }
+    else cur=test;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+async function baueCanvas(bgImg, untertitel, gerichte, gruss){
+  const W=1024, H=1536;
+  const cv = document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(bgImg, 0, 0, W, H);
+  ctx.fillStyle = GRUEN; ctx.strokeStyle = GRUEN;
+
+  const CX = 322;            // Mitte der linken Textspalte
+  const LX = 60, RX = 592;   // linke/rechte Grenze der Textspalte
+
+  // Titel (fix, zweizeilig)
+  ctx.textAlign='center';
+  ctx.font='700 104px "Dancing Script", cursive';
+  ctx.fillText('Wuchäend-', CX, 168);
+  ctx.fillText('Menü', CX, 272);
+
+  // Untertitel (Serif)
+  const uLines = untertitel.split('\n').map(s=>s.trim()).filter(Boolean);
+  ctx.font='500 40px "Playfair Display", serif';
+  let uy = 352;
+  uLines.forEach(l => { ctx.fillText(l, CX, uy); uy += 50; });
+
+  // Herz-Trenner unter Untertitel
+  ctx.font='30px "Segoe UI Emoji","Apple Color Emoji",sans-serif';
+  ctx.fillText('♥', CX, uy + 26);
+
+  // Menü-Bereich
+  const yTop = uy + 70;
+  const yBottom = 1120;
+  const n = Math.max(1, gerichte.length);
+  const slot = (yBottom - yTop) / n;
+
+  function bullet(cx, cy){
+    ctx.save();
+    ctx.lineWidth=3; ctx.strokeStyle=GRUEN;
+    ctx.beginPath(); ctx.arc(cx, cy, 27, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle=GRUEN; ctx.textAlign='center';
+    ctx.font='30px "Segoe UI Emoji","Apple Color Emoji",sans-serif';
+    ctx.fillText('♥', cx, cy+10);
+    ctx.restore();
+  }
+  function divider(y){
+    ctx.save(); ctx.strokeStyle=GRUEN; ctx.lineWidth=2; ctx.fillStyle=GRUEN;
+    ctx.beginPath(); ctx.moveTo(CX-82, y); ctx.lineTo(CX-24, y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(CX+24, y); ctx.lineTo(CX+82, y); ctx.stroke();
+    ctx.textAlign='center'; ctx.font='22px "Segoe UI Emoji","Apple Color Emoji",sans-serif';
+    ctx.fillText('♥', CX, y+7);
+    ctx.restore();
+  }
+
+  const itemFont = '700 58px "Dancing Script", cursive';
+  const lineH = 62;
+  const textLX = 150;             // Textbeginn nach Bullet
+  const textMaxW = RX - textLX;
+  for (let i=0;i<n;i++){
+    const cy = yTop + slot*(i+0.5);
+    bullet(105, cy);
+    ctx.fillStyle=GRUEN; ctx.textAlign='left'; ctx.font=itemFont;
+    const lines = wrap(ctx, gerichte[i]||'', textMaxW);
+    const total = lines.length*lineH;
+    let by = cy - total/2 + lineH*0.78;
+    lines.forEach(l => { ctx.fillText(l, textLX, by); by += lineH; });
+    if (i < n-1) divider(yTop + slot*(i+1));
+  }
+
+  // Grussformel (Schreibschrift), oberhalb der Deko unten links
+  const gLines = gruss.split('\n').map(s=>s.trim()).filter(Boolean);
+  ctx.textAlign='center'; ctx.fillStyle=GRUEN; ctx.font='600 40px "Dancing Script", cursive';
+  let gy = 1200;
+  gLines.forEach(l => { ctx.fillText(l, CX, gy); gy += 52; });
+  ctx.font='26px "Segoe UI Emoji","Apple Color Emoji",sans-serif';
+  ctx.fillText('♥', CX, gy + 8);
+
+  return cv;
 }
 
 async function erstellePlakat(){
@@ -146,47 +234,59 @@ async function erstellePlakat(){
 
   $('#erstellen').disabled = true;
   dlBereich.style.display = 'none'; vorschau.style.display = 'none';
-  status.innerHTML = '<span class="lade"><span class="spinner"></span>Plakat wird erstellt … das dauert etwa 20–60 Sekunden.</span>';
+  status.innerHTML = '<span class="lade"><span class="spinner"></span>Plakat wird erstellt … das dauert etwa 15–40 Sekunden.</span>';
 
   try {
+    // Schriften vorab laden (für Canvas)
+    await Promise.all([
+      document.fonts.load('700 104px "Dancing Script"'),
+      document.fonts.load('700 58px "Dancing Script"'),
+      document.fonts.load('600 40px "Dancing Script"'),
+      document.fonts.load('500 40px "Playfair Display"')
+    ]);
+    await document.fonts.ready;
+
     const res = await fetch('/api/plakat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ untertitel: $('#untertitel').value, gruss: $('#gruss').value, gerichte })
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gerichte })
     });
     const daten = await res.json();
     if (daten.error) throw new Error(daten.error);
     if (!daten.image) throw new Error('Kein Bild erhalten.');
-    letztesBild = daten.image;
-    vorschau.src = letztesBild; vorschau.style.display = 'block';
-    dlBereich.style.display = 'block';
-    status.innerHTML = '<span class="lade">✅ Fertig! Wenn der Text mal nicht stimmt: einfach nochmal „Plakat erstellen" drücken.</span>';
+
+    const bg = new Image();
+    await new Promise((resolve, reject) => { bg.onload=resolve; bg.onerror=()=>reject(new Error('Hintergrundbild defekt.')); bg.src=daten.image; });
+
+    const cv = await baueCanvas(bg, $('#untertitel').value, gerichte, $('#gruss').value);
+    letzterCanvas = cv;
+    vorschau.src = cv.toDataURL('image/png'); vorschau.style.display='block';
+    dlBereich.style.display='block';
+    status.innerHTML = '<span class="lade">✅ Fertig! Nicht zufrieden mit den Fotos? Einfach nochmal „Plakat erstellen" drücken.</span>';
   } catch (e){
-    let tipp = '';
-    if (/quota|billing|insufficient|exceeded/i.test(e.message)) tipp = '\n\nTipp: OpenAI-Guthaben prüfen.';
-    else if (/timeout|timed out|504|502/i.test(e.message)) tipp = '\n\nTipp: Es hat zu lange gedauert – bitte nochmal versuchen.';
+    let tipp='';
+    if (/quota|billing|insufficient|exceeded/i.test(e.message)) tipp='\n\nTipp: OpenAI-Guthaben prüfen.';
+    else if (/timeout|timed out|502|504/i.test(e.message)) tipp='\n\nTipp: Zu lange gedauert – bitte nochmal versuchen.';
     status.innerHTML = '<span class="fehler">Fehler: ' + e.message + tipp + '</span>';
   } finally {
     $('#erstellen').disabled = false;
   }
 }
-
 $('#erstellen').addEventListener('click', erstellePlakat);
 
-// Speichern/Teilen: auf Handy natives Menue (In Fotos/Galerie sichern), sonst Download
 $('#download').addEventListener('click', async () => {
-  if (!letztesBild) return;
+  if (!letzterCanvas) return;
   const name = dateiName();
+  const blob = await new Promise(res => letzterCanvas.toBlob(res, 'image/png'));
   try {
-    const blob = await (await fetch(letztesBild)).blob();
-    const file = new File([blob], name, { type: 'image/png' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'Wuchäend-Menü' });
+    const file = new File([blob], name, { type:'image/png' });
+    if (navigator.canShare && navigator.canShare({ files:[file] })) {
+      await navigator.share({ files:[file], title:'Wuchäend-Menü' });
       return;
     }
-  } catch (e) { /* Nutzer-Abbruch oder nicht unterstuetzt -> Fallback */ }
+  } catch(e){ /* Abbruch/nicht unterstützt -> Fallback */ }
   const a = document.createElement('a');
-  a.href = letztesBild; a.download = name; a.click();
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
 });
 
 document.querySelectorAll('textarea').forEach(autoGrow);
