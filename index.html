@@ -151,76 +151,42 @@ function wrap(ctx, text, maxW){
 
 async function baueCanvas(bgImg, untertitel, gerichte, gruss){
   const W=1024, H=1536;
-  const cv = document.createElement('canvas'); cv.width=W; cv.height=H;
-  const ctx = cv.getContext('2d');
-  ctx.drawImage(bgImg, 0, 0, W, H);
-  ctx.fillStyle = GRUEN; ctx.strokeStyle = GRUEN;
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  ctx.drawImage(bgImg,0,0,W,H);
+  ctx.fillStyle=GRUEN;
+  const CX=322, LX=70, RX=596;   // linke Textspalte
 
-  const CX = 322;            // Mitte der linken Textspalte
-  const LX = 60, RX = 592;   // linke/rechte Grenze der Textspalte
-
-  // Titel (fix, zweizeilig)
+  // Titel (fix, zweizeilig) – reiner Text
   ctx.textAlign='center';
   ctx.font='700 104px "Dancing Script", cursive';
   ctx.fillText('Wuchäend-', CX, 168);
   ctx.fillText('Menü', CX, 272);
 
-  // Untertitel (Serif)
-  const uLines = untertitel.split('\n').map(s=>s.trim()).filter(Boolean);
+  // Untertitel
+  const uLines=untertitel.split('\n').map(s=>s.trim()).filter(Boolean);
   ctx.font='500 40px "Playfair Display", serif';
-  let uy = 352;
-  uLines.forEach(l => { ctx.fillText(l, CX, uy); uy += 50; });
+  let uy=352; uLines.forEach(l=>{ ctx.fillText(l, CX, uy); uy+=50; });
 
-  // Herz-Trenner unter Untertitel
-  ctx.font='30px Georgia,"Times New Roman",serif';
-  ctx.fillText('♥︎', CX, uy + 26);
-
-  // Menü-Bereich
-  const yTop = uy + 70;
-  const yBottom = 1120;
-  const n = Math.max(1, gerichte.length);
-  const slot = (yBottom - yTop) / n;
-
-  function bullet(cx, cy){
-    ctx.save();
-    ctx.lineWidth=3; ctx.strokeStyle=GRUEN;
-    ctx.beginPath(); ctx.arc(cx, cy, 27, 0, Math.PI*2); ctx.stroke();
-    ctx.fillStyle=GRUEN; ctx.textAlign='center';
-    ctx.font='30px Georgia,"Times New Roman",serif';
-    ctx.fillText('♥︎', cx, cy+10);
-    ctx.restore();
-  }
-  function divider(y){
-    ctx.save(); ctx.strokeStyle=GRUEN; ctx.lineWidth=2; ctx.fillStyle=GRUEN;
-    ctx.beginPath(); ctx.moveTo(CX-82, y); ctx.lineTo(CX-24, y); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(CX+24, y); ctx.lineTo(CX+82, y); ctx.stroke();
-    ctx.textAlign='center'; ctx.font='22px Georgia,"Times New Roman",serif';
-    ctx.fillText('♥︎', CX, y+7);
-    ctx.restore();
+  // Menü – nur Text, linksbündig, vertikal verteilt (keine Grafik)
+  const yTop=uy+55, yBottom=1120;
+  const n=Math.max(1, gerichte.length);
+  const slot=(yBottom-yTop)/n;
+  const lineH=64, textLX=95, textMaxW=RX-textLX;
+  ctx.textAlign='left';
+  ctx.font='700 60px "Dancing Script", cursive';
+  for(let i=0;i<n;i++){
+    const cy=yTop+slot*(i+0.5);
+    const lines=wrap(ctx, gerichte[i]||'', textMaxW);
+    const total=lines.length*lineH;
+    let by=cy-total/2+lineH*0.78;
+    lines.forEach(l=>{ ctx.fillText(l, textLX, by); by+=lineH; });
   }
 
-  const itemFont = '700 58px "Dancing Script", cursive';
-  const lineH = 62;
-  const textLX = 150;             // Textbeginn nach Bullet
-  const textMaxW = RX - textLX;
-  for (let i=0;i<n;i++){
-    const cy = yTop + slot*(i+0.5);
-    bullet(105, cy);
-    ctx.fillStyle=GRUEN; ctx.textAlign='left'; ctx.font=itemFont;
-    const lines = wrap(ctx, gerichte[i]||'', textMaxW);
-    const total = lines.length*lineH;
-    let by = cy - total/2 + lineH*0.78;
-    lines.forEach(l => { ctx.fillText(l, textLX, by); by += lineH; });
-    if (i < n-1) divider(yTop + slot*(i+1));
-  }
-
-  // Grussformel (Schreibschrift), oberhalb der Deko unten links
-  const gLines = gruss.split('\n').map(s=>s.trim()).filter(Boolean);
-  ctx.textAlign='center'; ctx.fillStyle=GRUEN; ctx.font='600 40px "Dancing Script", cursive';
-  let gy = 1200;
-  gLines.forEach(l => { ctx.fillText(l, CX, gy); gy += 52; });
-  ctx.font='26px Georgia,"Times New Roman",serif';
-  ctx.fillText('♥︎', CX, gy + 8);
+  // Grussformel unten – reiner Text
+  const gLines=gruss.split('\n').map(s=>s.trim()).filter(Boolean);
+  ctx.textAlign='center'; ctx.font='600 40px "Dancing Script", cursive';
+  let gy=1205; gLines.forEach(l=>{ ctx.fillText(l, CX, gy); gy+=52; });
 
   return cv;
 }
